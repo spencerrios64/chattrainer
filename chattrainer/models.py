@@ -58,6 +58,20 @@ def models_for(tier: str, heretic: bool = False) -> list[Preset]:
     return ps if heretic else [p for p in ps if not is_heretic(p.id)]
 
 
+def heretic_for(vram_gb: float) -> list[Preset]:
+    """Heretic presets that fit in vram_gb, smallest first."""
+    return sorted((p for p in PRESETS if is_heretic(p.id) and p.vram <= vram_gb + 0.5), key=lambda p: p.vram)
+
+
+def best_heretic(vram_gb: float) -> Preset | None:
+    """The biggest Heretic preset that fits in vram_gb."""
+    fit = heretic_for(vram_gb)
+    return fit[-1] if fit else None
+
+
+TIER_VRAM = {"low": 6.0, "mid": 12.0, "high": 24.0}  # rough ceiling used when no GPU is detected
+
+
 def find(model_id: str) -> Preset | None:
     return next((p for p in PRESETS if p.id == model_id), None)
 
