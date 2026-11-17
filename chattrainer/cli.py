@@ -22,6 +22,7 @@ def main(argv: list[str] | None = None) -> None:
         ("export", "merge adapter into the base model, optional GGUF"),
         ("chat", "talk to the trained model in the terminal"),
         ("gui", "open the desktop app"),
+        ("install-train", "install PyTorch (CUDA) and the other training dependencies"),
     ]:
         sub.add_parser(name, help=help_)
     mp = sub.add_parser("models", help="list model presets by PC tier and detect your GPU")
@@ -29,6 +30,10 @@ def main(argv: list[str] | None = None) -> None:
     up = sub.add_parser("use", help="set the base model: a number from `chattrainer models`, a preset id, or any HF id/folder")
     up.add_argument("model")
     args = ap.parse_args(argv)
+
+    if args.cmd == "install-train":
+        from .setup_train import main as install_train
+        raise SystemExit(install_train())
 
     if args.cmd == "models":
         from .models import PRESETS, TIER_LABELS, TIERS, describe, detect_vram_gb, tier_for
