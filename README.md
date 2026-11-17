@@ -4,7 +4,17 @@ Fine-tune a local LLM on **your own** chat exports so it texts like you. Parses 
 
 Your chats never leave your machine and `data/`, `output/` and `config.toml` are git-ignored.
 
-## Quick start
+## Install (easiest)
+
+**Windows:** on the repo page click Code, Download ZIP, unzip it, then double-click `install.bat`. It creates a private environment, installs chattrainer and puts a shortcut on your desktop. Start the app from the shortcut (or `run.bat`).
+
+**macOS / Linux:** download or clone the repo, then run `bash install.sh` and start the app with `./run.sh`.
+
+Both need Python 3.11+ (Windows: `winget install Python.Python.3.12`). Then, in the app's Train tab, press **Install training components** once. It installs PyTorch with CUDA and the rest (needs an NVIDIA GPU; several GB download). From a terminal the same thing is `chattrainer install-train`.
+
+Prefer pip? `pip install "chattrainer @ git+https://github.com/spencerrios64/chattrainer"` then `chattrainer gui`.
+
+## Quick start (command line)
 
 ```bash
 git clone https://github.com/spencerrios64/chattrainer && cd chattrainer
@@ -15,7 +25,7 @@ chattrainer init            # creates config.toml and data/<platform>/ folders
 chattrainer stats           # shows how many messages were recognised as yours
 chattrainer prepare         # writes output/train.jsonl + val.jsonl
 
-pip install -e ".[train]"   # torch, transformers, peft, bitsandbytes
+chattrainer install-train   # PyTorch (CUDA), transformers, peft, bitsandbytes
 huggingface-cli login       # Llama 3.1 is gated: accept the licence first
 chattrainer train           # QLoRA, fits 12 GB VRAM (RTX 3060)
 chattrainer chat            # test your clone in the terminal
