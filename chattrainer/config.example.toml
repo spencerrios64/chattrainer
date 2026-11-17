@@ -34,7 +34,9 @@ val_fraction = 0.03
 # system_prompt = "You are Me. ..."   # override the default
 
 [training]
-base_model = "meta-llama/Llama-3.1-8B-Instruct"   # gated: accept licence + `huggingface-cli login`
+# Any Hugging Face id or local folder, including Heretic/abliterated models (e.g. "p-e-w/gemma-3-12b-it-heretic").
+# Llama 3.1 is gated: accept the licence + `huggingface-cli login`. Most Heretic repos are not gated.
+base_model = "meta-llama/Llama-3.1-8B-Instruct"
 max_seq_len = 1024
 epochs = 2
 learning_rate = 2e-4
