@@ -7,18 +7,43 @@ from pathlib import Path
 from .config import Config
 
 
+def prepare_tokenizer(tok):
+    """Make odd checkpoints (merges, abliterated/Heretic variants, base models) usable."""
+    tok.pad_token = tok.pad_token or tok.eos_token
+    if not getattr(tok, "chat_template", None):  # fall back to ChatML
+        tok.chat_template = (
+            "{% for m in messages %}<|im_start|>{{ m['role'] }}\n{{ m['content'] }}<|im_end|>\n{% endfor %}"
+            "{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}")
+    return tok
+
+
+def render(tok, msgs: list[dict], **kw):
+    """apply_chat_template, folding the system prompt into the first user turn for
+    templates that reject the system role (e.g. Gemma 2)."""
+    try:
+        return tok.apply_chat_template(msgs, **kw)
+    except Exception:
+        if msgs and msgs[0]["role"] == "system" and len(msgs) > 1:
+            first = {"role": "user", "content": msgs[0]["content"] + "\n\n" + msgs[1]["content"]}
+            return tok.apply_chat_template([first] + msgs[2:], **kw)
+        raise
+
+
 def encode(tok, messages: list[dict], max_len: int):
-    """Tokenize a chat; label only the assistant turns (everything else is -100)."""
+    """Tokenize a chat; label only the assistant turns (everything else is -100).
+    Returns None when the model's template does not render turns as a clean prefix chain."""
     msgs = list(messages)
     while True:
-        full = tok.apply_chat_template(msgs, tokenize=False)
+        full = render(tok, msgs, tokenize=False)
         spans = []
         for i, m in enumerate(msgs):
             if m["role"] != "assistant":
                 continue
-            start = len(tok.apply_chat_template(msgs[:i], tokenize=False, add_generation_prompt=True))
-            end = len(tok.apply_chat_template(msgs[: i + 1], tokenize=False))
-            spans.append((start, end))
+            pre = render(tok, msgs[:i], tokenize=False, add_generation_prompt=True)
+            upto = render(tok, msgs[: i + 1], tokenize=False)
+            if not (full.startswith(upto) and upto.startswith(pre)):
+                return None
+            spans.append((len(pre), len(upto)))
         enc = tok(full, add_special_tokens=False, return_offsets_mapping=True)
         if len(enc["input_ids"]) <= max_len or len(msgs) <= 3:
             break
@@ -32,12 +57,16 @@ def encode(tok, messages: list[dict], max_len: int):
 
 
 def _load(tok, path: Path, max_len: int):
-    rows = []
+    rows, skipped = [], 0
     if path.exists():
         for line in path.read_text(encoding="utf-8").splitlines():
             ex = encode(tok, json.loads(line)["messages"], max_len)
-            if any(x != -100 for x in ex["labels"]):
+            if ex is None:
+                skipped += 1
+            elif any(x != -100 for x in ex["labels"]):
                 rows.append(ex)
+    if skipped:
+        print(f"Skipped {skipped} examples this model's chat template cannot mask cleanly")
     return rows
 
 
@@ -54,7 +83,7 @@ def run(cfg: Config) -> None:
         raise SystemExit("No CUDA GPU found. Train on a GPU machine or a Colab runtime.")
 
     tok = AutoTokenizer.from_pretrained(cfg.base_model)
-    tok.pad_token = tok.pad_token or tok.eos_token
+    prepare_tokenizer(tok)
     train_rows = _load(tok, out / "train.jsonl", cfg.max_seq_len)
     val_rows = _load(tok, out / "val.jsonl", cfg.max_seq_len)
     if not train_rows:
@@ -71,7 +100,7 @@ def run(cfg: Config) -> None:
     model.gradient_checkpointing_enable()
     model = get_peft_model(model, LoraConfig(
         r=cfg.lora_r, lora_alpha=cfg.lora_alpha, lora_dropout=cfg.lora_dropout, task_type="CAUSAL_LM",
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]))
+        target_modules="all-linear"))
     model.print_trainable_parameters()
 
     def collate(batch):
