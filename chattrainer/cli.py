@@ -21,9 +21,15 @@ def main(argv: list[str] | None = None) -> None:
         ("train", "QLoRA fine-tune (needs `pip install .[train]` and a CUDA GPU)"),
         ("export", "merge adapter into the base model, optional GGUF"),
         ("chat", "talk to the trained model in the terminal"),
+        ("gui", "open the desktop app"),
     ]:
         sub.add_parser(name, help=help_)
     args = ap.parse_args(argv)
+
+    if args.cmd == "gui":
+        from .gui import run
+        run()
+        return
 
     if args.cmd == "init":
         dst = Path(args.config)
