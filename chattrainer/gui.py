@@ -273,13 +273,15 @@ class App(tk.Tk):
         log = Log(f)
         b1 = ttk.Button(bar, text="Start training")
         b2 = ttk.Button(bar, text="Export model (merge / GGUF)")
+        b3 = ttk.Button(bar, text="Install training components")
         stop = ttk.Button(bar, text="Stop", command=lambda: self.proc and self.proc.terminate())
-        b1.configure(command=lambda: self._run(["train"], log, [b1, b2]))
-        b2.configure(command=lambda: self._run(["export"], log, [b1, b2]))
-        for b in (b1, b2, stop):
+        b1.configure(command=lambda: self._run(["train"], log, [b1, b2, b3]))
+        b2.configure(command=lambda: self._run(["export"], log, [b1, b2, b3]))
+        b3.configure(command=lambda: self._run(["install-train"], log, [b1, b2, b3]))
+        for b in (b3, b1, b2, stop):
             b.pack(side="left", padx=(0, 6))
-        ttk.Label(f, text="Needs an NVIDIA GPU and: pip install \"chattrainer[train]\". Llama 3.1 also needs a "
-                          "Hugging Face login (accepted licence). Run 'Build dataset' first.",
+        ttk.Label(f, text="First time: press 'Install training components' (NVIDIA GPU needed). Gated models such as "
+                          "Llama also need a Hugging Face login. Run 'Build dataset' first.",
                   wraplength=780, foreground="#666").pack(anchor="w", pady=6)
         log.pack(fill="both", expand=True)
 
