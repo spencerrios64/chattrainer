@@ -53,7 +53,8 @@ class ChatSession:
         adapter = Path(cfg.output_dir) / "adapter"
         if not adapter.exists():
             raise RuntimeError("output/adapter missing. Train a model first.")
-        self.tok = AutoTokenizer.from_pretrained(adapter)
+        from .train import prepare_tokenizer
+        self.tok = prepare_tokenizer(AutoTokenizer.from_pretrained(adapter))
         quant = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
                                    bnb_4bit_compute_dtype=torch.bfloat16)
         model = AutoModelForCausalLM.from_pretrained(cfg.base_model, quantization_config=quant, device_map="auto")
@@ -65,8 +66,9 @@ class ChatSession:
 
     def reply(self, text: str) -> str:
         self.history.append({"role": "user", "content": text})
-        ids = self.tok.apply_chat_template(self.history, add_generation_prompt=True,
-                                           return_tensors="pt").to(self.model.device)
+        from .train import render
+        ids = render(self.tok, self.history, add_generation_prompt=True,
+                     return_tensors="pt").to(self.model.device)
         with self.torch.no_grad():
             gen = self.model.generate(ids, max_new_tokens=200, do_sample=True, temperature=0.8, top_p=0.9)
         out = self.tok.decode(gen[0][ids.shape[1]:], skip_special_tokens=True).strip()
