@@ -60,6 +60,15 @@ names = ["Your Name", "your_username"]
 
 `chattrainer stats` lists the top senders per platform and warns when none match.
 
+## Heretic and other uncensored models
+
+Heretic models are ordinary Hugging Face checkpoints with the refusal direction removed, so chattrainer trains them like any other model. Set `base_model` in `config.toml` (or in the app's Settings tab) to the repo id of the model you want, for example `p-e-w/gemma-3-12b-it-heretic`, or to a local folder if you made one with `heretic` yourself. Most Heretic repos are not gated, so no Hugging Face login is needed.
+
+- Pick a size that fits your GPU: with 4-bit QLoRA an 8B model fits 12 GB comfortably, a 12B model is tight, 4B is easy.
+- Chat templates differ between families. chattrainer falls back to ChatML when a model has none, folds the system prompt into the first user turn for templates that reject it, and skips examples a template cannot mask cleanly (it prints how many).
+- LoRA targets all linear layers, so it works across Llama, Qwen, Gemma and similar architectures.
+- Heretic only removes refusals; your model will still copy whatever is in the chats. Review the training data first.
+
 ## Dataset
 
 - Consecutive messages from one person within `merge_gap_minutes` become one turn; a gap over `session_gap_hours` starts a new conversation.
