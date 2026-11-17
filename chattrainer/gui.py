@@ -17,15 +17,10 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 from . import config as config_mod
 from .config import Config
+from .models import TIER_LABELS, TIERS, default_for, describe, detect_vram_gb, find, models_for, tier_for
 from .parsers import PARSERS
 
 CONFIG_PATH = Path("config.toml")
-PRESETS = [
-    "meta-llama/Llama-3.1-8B-Instruct",
-    "Qwen/Qwen3-4B-Instruct-2507",
-    "google/gemma-3-12b-it",
-    "p-e-w/gemma-3-12b-it-heretic",
-]
 HINTS = {
     "whatsapp": ".txt files from Export chat",
     "instagram": "folder with message_*.json (choose JSON export)",
@@ -146,19 +141,57 @@ class App(tk.Tk):
         mode = tk.StringVar(value=c.mode)
         ttk.Combobox(r, textvariable=mode, values=["pairs", "windows", "both"], state="readonly", width=12).pack(side="left")
         self.v["mode"] = mode
+        tr = ttk.Frame(f)
+        tr.pack(fill="x", pady=2)
+        ttk.Label(tr, text="My PC", width=24).pack(side="left")
+        cur = find(c.base_model)
+        self.tier = tk.StringVar(value=cur.tier if cur else "custom")
+        tcb = ttk.Combobox(tr, textvariable=self.tier, values=[*TIERS, "custom"], state="readonly", width=10)
+        tcb.pack(side="left")
+        ttk.Button(tr, text="Detect my GPU", command=self._detect).pack(side="left", padx=6)
+        self.gpu_info = tk.StringVar(value="low = 4-6 GB VRAM, mid = 8-12 GB, high = 16 GB+")
+        ttk.Label(tr, textvariable=self.gpu_info, foreground="#666").pack(side="left")
         r = ttk.Frame(f)
         r.pack(fill="x", pady=2)
         ttk.Label(r, text="Base model", width=24).pack(side="left")
-        base = tk.StringVar(value=c.base_model)
-        ttk.Combobox(r, textvariable=base, width=48, values=PRESETS).pack(side="left")
-        self.v["base_model"] = base
-        ttk.Label(f, text="Paste any Hugging Face model id (for example a Heretic / abliterated model) or a local folder.",
-                  foreground="#666").pack(anchor="w")
+        self.base = tk.StringVar(value=c.base_model)
+        self.model_cb = ttk.Combobox(r, textvariable=self.base, width=48,
+                                     values=[p.id for p in models_for(self.tier.get())])
+        self.model_cb.pack(side="left")
+        self.v["base_model"] = self.base
+        self.model_info = tk.StringVar()
+        ttk.Label(f, textvariable=self.model_info, foreground="#666").pack(anchor="w")
+        tcb.bind("<<ComboboxSelected>>", lambda _e: self._tier_changed())
+        self.model_cb.bind("<<ComboboxSelected>>", lambda _e: self._show_model())
+        self.model_cb.bind("<KeyRelease>", lambda _e: self._show_model())
+        self._show_model()
         entry("Epochs", "epochs", c.epochs, 10)
         entry("Max sequence length", "max_seq_len", c.max_seq_len, 10)
         entry("Gradient accumulation", "grad_accum", c.grad_accum, 10)
         entry("llama.cpp folder (GGUF)", "llama_cpp_dir", c.llama_cpp_dir)
         ttk.Button(f, text="Save settings", command=self._save).pack(anchor="w", pady=12)
+
+    def _tier_changed(self) -> None:
+        t = self.tier.get()
+        ids = [p.id for p in models_for(t)]
+        self.model_cb["values"] = ids
+        if t in TIERS and self.base.get() not in ids:
+            self.base.set(default_for(t).id)
+        self._show_model()
+
+    def _show_model(self) -> None:
+        p = find(self.base.get())
+        self.model_info.set(describe(p) if p else
+                            "Custom model: paste any Hugging Face id (e.g. a Heretic model) or a local folder.")
+
+    def _detect(self) -> None:
+        vram = detect_vram_gb()
+        if vram is None:
+            self.gpu_info.set("No NVIDIA GPU found. Pick a tier by hand.")
+            return
+        self.tier.set(tier_for(vram))
+        self.gpu_info.set(f"Found about {vram:.0f} GB VRAM -> {TIER_LABELS[self.tier.get()]}")
+        self._tier_changed()
 
     def _save(self) -> bool:
         v = {k: x.get() for k, x in self.v.items()}
