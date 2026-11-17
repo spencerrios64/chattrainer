@@ -1,0 +1,51 @@
+# chattrainer config. Copy to config.toml (or run `chattrainer init`).
+
+[identity]
+name = "Me"                       # used in the system prompt: "You are Me. ..."
+# Every display name / username that is YOU in the exports (case-insensitive).
+names = ["Your Name", "your_username"]
+
+# Optional per-platform extras, e.g. a different handle on one app:
+# [platform_names]
+# instagram = ["your.insta.handle"]
+# tiktok = ["your_tiktok"]
+
+[paths]
+data_dir = "data"                 # put exports in data/whatsapp, data/instagram, ...
+output_dir = "output"
+
+[privacy]
+scrub_pii = true                  # emails, phones, IBANs, card-like numbers -> placeholders
+scrub_urls = true
+anonymize_names = false           # replace other participants' names in text with <NAME>
+skip_groups = false               # true = only 1-on-1 chats
+
+[dataset]
+mode = "both"                     # pairs | windows | both
+context_turns = 6                 # pairs: how many previous turns the model sees
+window_turns = 12                 # windows: max turns per example
+window_stride = 6
+merge_gap_minutes = 3             # consecutive messages by one person within this gap = one turn
+session_gap_hours = 8             # a longer silence starts a new conversation
+min_reply_chars = 2
+max_turn_chars = 1200
+include_solo = true               # Discord/Snapchat-style data with only your side
+val_fraction = 0.03
+# system_prompt = "You are Me. ..."   # override the default
+
+[training]
+base_model = "meta-llama/Llama-3.1-8B-Instruct"   # gated: accept licence + `huggingface-cli login`
+max_seq_len = 1024
+epochs = 2
+learning_rate = 2e-4
+batch_size = 1
+grad_accum = 16
+lora_r = 16
+lora_alpha = 32
+lora_dropout = 0.05
+load_in_4bit = true               # QLoRA: fits 12 GB VRAM (RTX 3060)
+seed = 42
+
+[export]
+llama_cpp_dir = ""                # path to a llama.cpp checkout, to also produce a GGUF
+gguf_quant = "Q4_K_M"
