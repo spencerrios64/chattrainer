@@ -60,6 +60,18 @@ names = ["Your Name", "your_username"]
 
 `chattrainer stats` lists the top senders per platform and warns when none match.
 
+## Choosing a model for your PC
+
+`chattrainer models` lists presets for three tiers and detects your GPU; `chattrainer use <number or id>` sets the one you pick. The desktop app has the same thing in Settings ("My PC" tier, "Detect my GPU", model dropdown). VRAM figures are rough minimums for 4-bit QLoRA at 1024 tokens.
+
+| Tier | VRAM | Presets |
+|---|---|---|
+| Low | 4-6 GB | Qwen2.5 1.5B / 3B, Llama 3.2 1B / 3B, Gemma 3 1B |
+| Mid | 8-12 GB | Qwen3 4B, Qwen2.5 7B, Llama 3.1 8B (default), Mistral 7B, Gemma 3 12B, Gemma 3 12B Heretic |
+| High | 16 GB+ | Qwen2.5 14B (default), Gemma 3 27B, Qwen2.5 32B, Llama 3.3 70B (48 GB or multi-GPU) |
+
+Any other Hugging Face id or local folder works too.
+
 ## Heretic and other uncensored models
 
 Heretic models are ordinary Hugging Face checkpoints with the refusal direction removed, so chattrainer trains them like any other model. Set `base_model` in `config.toml` (or in the app's Settings tab) to the repo id of the model you want, for example `p-e-w/gemma-3-12b-it-heretic`, or to a local folder if you made one with `heretic` yourself. Most Heretic repos are not gated, so no Hugging Face login is needed.
