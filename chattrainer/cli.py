@@ -27,6 +27,9 @@ def main(argv: list[str] | None = None) -> None:
         sub.add_parser(name, help=help_)
     mp = sub.add_parser("models", help="list model presets by PC tier and detect your GPU")
     mp.add_argument("--tier", choices=["low", "mid", "high"])
+    dp = sub.add_parser("download", help="download a model from Hugging Face before training")
+    dp.add_argument("model")
+    sub.add_parser("login", help="log in to Hugging Face using the HF_TOKEN environment variable")
     up = sub.add_parser("use", help="set the base model: a number from `chattrainer models`, a preset id, or any HF id/folder")
     up.add_argument("model")
     args = ap.parse_args(argv)
@@ -34,6 +37,14 @@ def main(argv: list[str] | None = None) -> None:
     if args.cmd == "install-train":
         from .setup_train import main as install_train
         raise SystemExit(install_train())
+
+    if args.cmd == "download":
+        from .download import main as download
+        raise SystemExit(download(args.model))
+
+    if args.cmd == "login":
+        from .download import login
+        raise SystemExit(login())
 
     if args.cmd == "models":
         from .models import PRESETS, TIER_LABELS, TIERS, describe, detect_vram_gb, tier_for
