@@ -24,7 +24,36 @@ def main(argv: list[str] | None = None) -> None:
         ("gui", "open the desktop app"),
     ]:
         sub.add_parser(name, help=help_)
+    mp = sub.add_parser("models", help="list model presets by PC tier and detect your GPU")
+    mp.add_argument("--tier", choices=["low", "mid", "high"])
+    up = sub.add_parser("use", help="set the base model: a number from `chattrainer models`, a preset id, or any HF id/folder")
+    up.add_argument("model")
     args = ap.parse_args(argv)
+
+    if args.cmd == "models":
+        from .models import PRESETS, TIER_LABELS, TIERS, describe, detect_vram_gb, tier_for
+        vram = detect_vram_gb()
+        mine = tier_for(vram) if vram else None
+        print(f"Detected GPU memory: {vram:.0f} GB -> recommended tier: {mine}" if vram
+              else "No NVIDIA GPU detected (nvidia-smi). Pick a tier yourself.")
+        for t in ([args.tier] if args.tier else TIERS):
+            print(f"\n{TIER_LABELS[t]}" + ("   <- your PC" if t == mine else ""))
+            for i, p in enumerate(PRESETS, 1):
+                if p.tier == t:
+                    print(f"  {i:>2}. {p.id}{'  [default]' if p.default else ''}\n      {describe(p)}")
+        print("\nChoose one with: chattrainer use <number or id>")
+        return
+
+    if args.cmd == "use":
+        import dataclasses
+        from .models import PRESETS
+        pick = args.model
+        if pick.isdigit() and 1 <= int(pick) <= len(PRESETS):
+            pick = PRESETS[int(pick) - 1].id
+        cfg = config_mod.load(args.config)
+        config_mod.save(dataclasses.replace(cfg, base_model=pick), args.config)
+        print(f"base_model set to {pick} in {args.config}")
+        return
 
     if args.cmd == "gui":
         from .gui import run
