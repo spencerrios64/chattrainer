@@ -17,7 +17,7 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 from . import config as config_mod
 from .config import Config
-from .models import TIER_LABELS, TIERS, default_for, describe, detect_vram_gb, find, is_heretic, models_for, tier_for
+from .models import TIER_LABELS, TIERS, default_for, describe, detect_vram_gb, best_heretic, find, heretic_for, is_heretic, models_for, tier_for, TIER_VRAM
 from .parsers import PARSERS
 
 CONFIG_PATH = Path("config.toml")
@@ -159,7 +159,7 @@ class App(tk.Tk):
         self.model_cb = ttk.Combobox(r, textvariable=self.base, width=48,
                                      values=[p.id for p in models_for(self.tier.get(), self.heretic.get())])
         self.model_cb.pack(side="left")
-        ttk.Checkbutton(r, text="Show Heretic (uncensored) models", variable=self.heretic,
+        ttk.Checkbutton(r, text="Heretic: pick uncensored models for my PC", variable=self.heretic,
                         command=self._tier_changed).pack(side="left", padx=8)
         self.v["base_model"] = self.base
         self.model_info = tk.StringVar()
@@ -174,12 +174,32 @@ class App(tk.Tk):
         entry("llama.cpp folder (GGUF)", "llama_cpp_dir", c.llama_cpp_dir)
         ttk.Button(f, text="Save settings", command=self._save).pack(anchor="w", pady=12)
 
+    def _pc_vram(self) -> float:
+        v = detect_vram_gb()
+        if v is not None:
+            return v
+        return TIER_VRAM.get(self.tier.get(), 12.0)
+
     def _refresh_list(self) -> None:
-        self.model_cb["values"] = [p.id for p in models_for(self.tier.get(), self.heretic.get())]
+        if self.heretic.get():
+            self.model_cb["values"] = [p.id for p in heretic_for(self._pc_vram())]
+        else:
+            self.model_cb["values"] = [p.id for p in models_for(self.tier.get())]
 
     def _tier_changed(self) -> None:
+        if self.heretic.get():
+            vram = self._pc_vram()
+            best = best_heretic(vram)
+            self._refresh_list()
+            if best is None:
+                self.gpu_info.set(f"No Heretic preset fits {vram:.0f} GB. Type any Heretic model id instead.")
+            else:
+                self.base.set(best.id)
+                self.gpu_info.set(f"Heretic models that fit about {vram:.0f} GB VRAM; picked the biggest.")
+            self._show_model()
+            return
         t = self.tier.get()
-        ids = [p.id for p in models_for(t, self.heretic.get())]
+        ids = [p.id for p in models_for(t)]
         self.model_cb["values"] = ids
         if t in TIERS and self.base.get() not in ids:
             self.base.set(default_for(t).id)
@@ -189,7 +209,7 @@ class App(tk.Tk):
         mid = self.base.get()
         p = find(mid)
         if is_heretic(mid) and not self.heretic.get():
-            self.heretic.set(True)  # a Heretic model was picked or typed: show them in the list too
+            self.heretic.set(True)  # a Heretic model was picked or typed
             self._refresh_list()
         self.model_info.set(describe(p) if p else
                             ("Heretic model detected. " if is_heretic(mid) else "") +
