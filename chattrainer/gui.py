@@ -63,8 +63,8 @@ class App(tk.Tk):
         nb = ttk.Notebook(self)
         nb.pack(fill="both", expand=True, padx=8, pady=8)
         for title, build in [("1. Data", self._data_tab), ("2. Settings", self._settings_tab),
-                             ("3. Prepare", self._prepare_tab), ("4. Train", self._train_tab),
-                             ("5. Chat", self._chat_tab)]:
+                             ("3. Models", self._models_tab), ("4. Prepare", self._prepare_tab),
+                             ("5. Train", self._train_tab), ("6. Chat", self._chat_tab)]:
             frame = ttk.Frame(nb, padding=10)
             nb.add(frame, text=title)
             build(frame)
@@ -243,14 +243,14 @@ class App(tk.Tk):
         return True
 
     # ---------------------------------------------------- subprocess runner
-    def _run(self, args: list[str], log: Log, buttons: list[ttk.Button]) -> None:
+    def _run(self, args: list[str], log: Log, buttons: list[ttk.Button], extra_env: dict | None = None) -> None:
         if self.proc or not self._save():
             return
         log.clear()
         for b in buttons:
             b.state(["disabled"])
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        env = {**os.environ, "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
+        env = {**os.environ, "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8", **(extra_env or {})}
         self.proc = subprocess.Popen([sys.executable, "-m", "chattrainer", *args], stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, text=True, encoding="utf-8",
                                      errors="replace", env=env, creationflags=flags)
@@ -273,6 +273,8 @@ class App(tk.Tk):
                     for b in payload:
                         b.state(["!disabled"])
                     self._refresh_counts()
+                    if hasattr(self, "model_tree"):
+                        self._refresh_models()
                 elif isinstance(target, Log):
                     target.write(payload)
                 else:
@@ -280,6 +282,95 @@ class App(tk.Tk):
         except queue.Empty:
             pass
         self.after(100, self._pump)
+
+    # -------------------------------------------------------------- models
+    def _models_tab(self, f: ttk.Frame) -> None:
+        ttk.Label(f, text="Download a model before training so training starts right away. "
+                          "Pick one, press Download, then 'Use for training'.", wraplength=780).pack(anchor="w")
+        cols = ("model", "size", "fits", "status")
+        self.model_tree = ttk.Treeview(f, columns=cols, show="headings", height=11, selectmode="browse")
+        for c, t, w in (("model", "Model", 380), ("size", "Size / VRAM", 150), ("fits", "Fits my GPU", 90),
+                        ("status", "Downloaded", 90)):
+            self.model_tree.heading(c, text=t)
+            self.model_tree.column(c, width=w, anchor="w")
+        self.model_tree.pack(fill="x", pady=6)
+        self.model_vram = detect_vram_gb()
+        bar = ttk.Frame(f)
+        bar.pack(fill="x")
+        log = Log(f)
+        log.configure(height=8)
+        b1 = ttk.Button(bar, text="Download selected")
+        b2 = ttk.Button(bar, text="Use for training", command=self._use_selected)
+        b3 = ttk.Button(bar, text="Refresh", command=self._refresh_models)
+        self.dl_btns = [b1]
+        b1.configure(command=lambda: self._download(self._selected_model(), log))
+        for b in (b1, b2, b3):
+            b.pack(side="left", padx=(0, 6))
+        self.models_msg = tk.StringVar(value="Heretic (uncensored) models are marked in the Size column.")
+        ttk.Label(bar, textvariable=self.models_msg, foreground="#666").pack(side="left", padx=6)
+        r = ttk.Frame(f)
+        r.pack(fill="x", pady=(8, 2))
+        ttk.Label(r, text="Other Hugging Face id", width=22).pack(side="left")
+        self.custom_id = tk.StringVar()
+        ttk.Entry(r, textvariable=self.custom_id, width=44).pack(side="left")
+        b4 = ttk.Button(r, text="Download", command=lambda: self._download(self.custom_id.get(), log))
+        b4.pack(side="left", padx=6)
+        self.dl_btns.append(b4)
+        t = ttk.Frame(f)
+        t.pack(fill="x", pady=2)
+        ttk.Label(t, text="Hugging Face token", width=22).pack(side="left")
+        self.hf_token = tk.StringVar()
+        ttk.Entry(t, textvariable=self.hf_token, width=44, show="*").pack(side="left")
+        b5 = ttk.Button(t, text="Log in", command=lambda: self._hf_login(log))
+        b5.pack(side="left", padx=6)
+        self.dl_btns.append(b5)
+        ttk.Label(f, text="Llama and Gemma are gated: accept the licence on the model's huggingface.co page, then make a "
+                          "'Read' token at huggingface.co/settings/tokens and log in once. Qwen and Mistral-style models "
+                          "mostly need no login.", wraplength=780, foreground="#666").pack(anchor="w", pady=4)
+        log.pack(fill="both", expand=True)
+        self._refresh_models()
+
+    def _refresh_models(self) -> None:
+        from .download import is_downloaded
+        from .models import PRESETS
+        vram = self.model_vram
+        sel = self._selected_model()
+        self.model_tree.delete(*self.model_tree.get_children())
+        rows = sorted(PRESETS, key=lambda p: (vram is not None and p.vram > vram + 0.5, p.vram))
+        for p in rows:
+            fits = "?" if vram is None else ("yes" if p.vram <= vram + 0.5 else "no")
+            tag = " [Heretic]" if is_heretic(p.id) else ""
+            self.model_tree.insert("", "end", iid=p.id, values=(
+                p.id, f"{p.params}, ~{p.vram} GB{tag}", fits, "yes" if is_downloaded(p.id) else "no"))
+        if sel and self.model_tree.exists(sel):
+            self.model_tree.selection_set(sel)
+
+    def _selected_model(self) -> str:
+        s = self.model_tree.selection()
+        return s[0] if s else ""
+
+    def _download(self, model_id: str, log: Log) -> None:
+        if not model_id.strip():
+            messagebox.showinfo("chattrainer", "Select a model in the list (or type a Hugging Face id) first.")
+            return
+        self._run(["download", model_id.strip()], log, self.dl_btns)
+
+    def _hf_login(self, log: Log) -> None:
+        if not self.hf_token.get().strip():
+            messagebox.showinfo("chattrainer", "Paste your Hugging Face token first.")
+            return
+        self._run(["login"], log, self.dl_btns, extra_env={"HF_TOKEN": self.hf_token.get().strip()})
+        self.hf_token.set("")
+
+    def _use_selected(self) -> None:
+        mid = self._selected_model()
+        if not mid:
+            messagebox.showinfo("chattrainer", "Select a model in the list first.")
+            return
+        self.base.set(mid)
+        self._show_model()
+        if self._save():
+            self.models_msg.set(f"Training will use {mid}.")
 
     # ------------------------------------------------------------- prepare
     def _prepare_tab(self, f: ttk.Frame) -> None:
