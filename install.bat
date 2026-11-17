@@ -1,18 +1,31 @@
 @echo off
+setlocal
 cd /d "%~dp0"
-py -3 -c "import sys; sys.exit(sys.version_info < (3, 11))" 2>nul
-if errorlevel 1 goto nopython
-py -3 -m venv .venv
-.venv\Scripts\python.exe -m pip install -U pip
-.venv\Scripts\python.exe -m pip install -e .
+set PYCMD=
+py -3 -c "import sys; sys.exit(sys.version_info < (3, 11))" >nul 2>nul && set PYCMD=py -3
+if not defined PYCMD python -c "import sys; sys.exit(sys.version_info < (3, 11))" >nul 2>nul && set PYCMD=python
+if not defined PYCMD goto nopython
+echo Using Python: %PYCMD%
+%PYCMD% -m venv .venv || goto failed
+.venv\Scripts\python.exe -m pip install -U pip || goto failed
+.venv\Scripts\python.exe -m pip install -e . || goto failed
 powershell -NoProfile -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Desktop')+'\chattrainer.lnk');$s.TargetPath='%~dp0run.bat';$s.WorkingDirectory='%~dp0';$s.Save()"
 echo.
-echo Installed. A chattrainer shortcut is on your desktop (or double-click run.bat).
-echo In the app, open the Train tab and press "Install training components" once.
+echo ==================================================
+echo  SUCCESS: chattrainer is installed.
+echo  Start it from the "chattrainer" shortcut on your desktop,
+echo  or double-click run.bat in this folder.
+echo  Then open the Train tab and press "Install training components" once.
+echo ==================================================
 pause
 exit /b 0
+:failed
+echo.
+echo FAILED. Scroll up to read the error above, then send it to me.
+pause
+exit /b 1
 :nopython
-echo Python 3.11 or newer is required. Install it with:  winget install Python.Python.3.12
-echo or from https://www.python.org/downloads/ (tick "Add python.exe to PATH"), then run this again.
+echo Python 3.11 or newer was not found. Install it with:  winget install Python.Python.3.12
+echo or from https://www.python.org/downloads/ (tick "Add python.exe to PATH"), then run install.bat again.
 pause
 exit /b 1
