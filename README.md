@@ -24,6 +24,15 @@ chattrainer export          # merge adapter (+ GGUF if llama_cpp_dir is set)
 
 Requires Python 3.11+. Training needs an NVIDIA GPU (on Windows, install a CUDA build of PyTorch first; `bitsandbytes` 4-bit support on Windows needs a recent version). Merging an 8B model on CPU needs about 16 GB of free RAM, so close other apps or run `export` on Colab.
 
+## Desktop app
+
+```bash
+pip install -e .
+chattrainer gui        # or: chattrainer-gui
+```
+
+A Tkinter window (no extra dependencies; included with Python on Windows and macOS, on Linux install `python3-tk`) with five tabs: add your exports, settings, build the dataset, train/export with live logs, and chat with your clone. It works in the folder you launch it from (config.toml, data/ and output/ live there). Training still needs the `[train]` extra and an NVIDIA GPU.
+
 ## Where to put each export
 
 | Folder | Export | How to get it |
