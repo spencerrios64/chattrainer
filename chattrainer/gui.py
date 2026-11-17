@@ -285,6 +285,7 @@ class App(tk.Tk):
 
     # -------------------------------------------------------------- models
     def _models_tab(self, f: ttk.Frame) -> None:
+        from .download import is_downloaded  # noqa: F401 (also used in _refresh_models)
         ttk.Label(f, text="Download a model before training so training starts right away. "
                           "Pick one, press Download, then 'Use for training'.", wraplength=780).pack(anchor="w")
         cols = ("model", "size", "fits", "status", "pick")
@@ -427,7 +428,9 @@ class App(tk.Tk):
         b1.configure(command=lambda: self._run(["train"], log, [b1, b2, b3]))
         b2.configure(command=lambda: self._run(["export"], log, [b1, b2, b3]))
         b3.configure(command=lambda: self._run(["install-train"], log, [b1, b2, b3]))
-        for b in (b3, b1, b2, stop):
+        b4 = ttk.Button(bar, text="Phone remote")
+        b4.configure(command=lambda: self._run(["serve"], log, [b4]))
+        for b in (b3, b1, b2, b4, stop):
             b.pack(side="left", padx=(0, 6))
         ttk.Label(f, text="First time: press 'Install training components' (NVIDIA GPU needed). Gated models such as "
                           "Llama also need a Hugging Face login. Run 'Build dataset' first.",
