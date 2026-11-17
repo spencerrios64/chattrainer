@@ -41,28 +41,46 @@ def merge(cfg: Config) -> Path:
     return merged
 
 
-def chat(cfg: Config) -> None:
-    import torch
-    from peft import PeftModel
-    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+class ChatSession:
+    """Loads base model + adapter once; used by the CLI chat and the desktop app."""
 
-    adapter = Path(cfg.output_dir) / "adapter"
-    tok = AutoTokenizer.from_pretrained(adapter)
-    quant = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
-                               bnb_4bit_compute_dtype=torch.bfloat16)
-    model = AutoModelForCausalLM.from_pretrained(cfg.base_model, quantization_config=quant, device_map="auto")
-    model = PeftModel.from_pretrained(model, adapter).eval()
-    history = [{"role": "system", "content": cfg.system()}]
+    def __init__(self, cfg: Config):
+        import torch
+        from peft import PeftModel
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+        self.cfg, self.torch = cfg, torch
+        adapter = Path(cfg.output_dir) / "adapter"
+        if not adapter.exists():
+            raise RuntimeError("output/adapter missing. Train a model first.")
+        self.tok = AutoTokenizer.from_pretrained(adapter)
+        quant = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
+                                   bnb_4bit_compute_dtype=torch.bfloat16)
+        model = AutoModelForCausalLM.from_pretrained(cfg.base_model, quantization_config=quant, device_map="auto")
+        self.model = PeftModel.from_pretrained(model, adapter).eval()
+        self.reset()
+
+    def reset(self) -> None:
+        self.history = [{"role": "system", "content": self.cfg.system()}]
+
+    def reply(self, text: str) -> str:
+        self.history.append({"role": "user", "content": text})
+        ids = self.tok.apply_chat_template(self.history, add_generation_prompt=True,
+                                           return_tensors="pt").to(self.model.device)
+        with self.torch.no_grad():
+            gen = self.model.generate(ids, max_new_tokens=200, do_sample=True, temperature=0.8, top_p=0.9)
+        out = self.tok.decode(gen[0][ids.shape[1]:], skip_special_tokens=True).strip()
+        self.history.append({"role": "assistant", "content": out})
+        return out
+
+
+def chat(cfg: Config) -> None:
+    session = ChatSession(cfg)
     print("Chat with your clone. Ctrl+C to quit.")
     while True:
         try:
-            history.append({"role": "user", "content": input("you> ")})
+            line = input("you> ")
         except (KeyboardInterrupt, EOFError):
             print()
             return
-        ids = tok.apply_chat_template(history, add_generation_prompt=True, return_tensors="pt").to(model.device)
-        with torch.no_grad():
-            gen = model.generate(ids, max_new_tokens=200, do_sample=True, temperature=0.8, top_p=0.9)
-        reply = tok.decode(gen[0][ids.shape[1]:], skip_special_tokens=True).strip()
-        history.append({"role": "assistant", "content": reply})
-        print(f"{cfg.name}> {reply}")
+        print(f"{cfg.name}> {session.reply(line)}")
