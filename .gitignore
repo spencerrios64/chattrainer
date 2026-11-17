@@ -1,0 +1,9 @@
+# Your chats are private. Never commit them.
+data/*
+!data/.gitkeep
+output/
+config.toml
+__pycache__/
+*.egg-info/
+*.gguf
+.venv/
