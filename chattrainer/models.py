@@ -34,16 +34,28 @@ PRESETS: list[Preset] = [
     Preset("mid", "meta-llama/Llama-3.1-8B-Instruct", "8B", 12, "gated: accept licence", True),
     Preset("mid", "mistralai/Mistral-7B-Instruct-v0.3", "7B", 10, "gated: accept licence"),
     Preset("mid", "google/gemma-3-12b-it", "12B", 12, "tight on 12 GB, gated"),
+    Preset("mid", "skilledu/qwen3-4b-heretic", "4B", 8, "Heretic (uncensored), community"),
+    Preset("mid", "LeadFootThrottleCock/Qwen2.5-7B-Instruct-heretic", "7B", 10, "Heretic (uncensored), community"),
+    Preset("mid", "DreamFast/qwen3-8b-heretic", "8B", 12, "Heretic (uncensored), community"),
     Preset("mid", "p-e-w/gemma-3-12b-it-heretic", "12B", 12, "Heretic (uncensored), tight on 12 GB"),
     Preset("high", "Qwen/Qwen2.5-14B-Instruct", "14B", 16, "great balance", True),
     Preset("high", "google/gemma-3-27b-it", "27B", 24, "tight on 24 GB, gated"),
     Preset("high", "Qwen/Qwen2.5-32B-Instruct", "32B", 24, "very tight on 24 GB"),
     Preset("high", "meta-llama/Llama-3.3-70B-Instruct", "70B", 48, "needs 48 GB or several GPUs, gated"),
+    Preset("high", "krthkyadtya/Qwen2.5-72B-Instruct-heretic", "72B", 48, "Heretic (uncensored), needs 48 GB or several GPUs"),
 ]
 
 
-def models_for(tier: str) -> list[Preset]:
-    return [p for p in PRESETS if p.tier == tier] if tier in TIERS else list(PRESETS)
+def is_heretic(model_id: str) -> bool:
+    """True for Heretic / abliterated models, by name (works for any custom Hugging Face id or folder)."""
+    m = model_id.lower()
+    return "heretic" in m or "abliterat" in m
+
+
+def models_for(tier: str, heretic: bool = False) -> list[Preset]:
+    """Presets for a tier. Heretic (uncensored) models are only listed when heretic=True."""
+    ps = [p for p in PRESETS if p.tier == tier] if tier in TIERS else list(PRESETS)
+    return ps if heretic else [p for p in ps if not is_heretic(p.id)]
 
 
 def find(model_id: str) -> Preset | None:
