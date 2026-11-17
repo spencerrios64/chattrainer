@@ -9,6 +9,7 @@ echo Using Python: %PYCMD%
 %PYCMD% -m venv .venv || goto failed
 .venv\Scripts\python.exe -m pip install -U pip || goto failed
 .venv\Scripts\python.exe -m pip install -e . || goto failed
+.venv\Scripts\python.exe -c "import tkinter" >nul 2>nul || goto notk
 powershell -NoProfile -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Desktop')+'\chattrainer.lnk');$s.TargetPath='%~dp0run.bat';$s.WorkingDirectory='%~dp0';$s.Save()"
 echo.
 echo ==================================================
@@ -22,6 +23,12 @@ exit /b 0
 :failed
 echo.
 echo FAILED. Scroll up to read the error above, then send it to me.
+pause
+exit /b 1
+:notk
+echo.
+echo FAILED: this Python has no Tk (needed for the app window).
+echo Re-run the Python installer from python.org, choose Modify, and tick "tcl/tk and IDLE".
 pause
 exit /b 1
 :nopython
