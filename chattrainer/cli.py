@@ -30,10 +30,24 @@ def main(argv: list[str] | None = None) -> None:
     mp.add_argument("--tier", choices=["low", "mid", "high"])
     dp = sub.add_parser("download", help="download a model from Hugging Face before training")
     dp.add_argument("model")
+    ad = sub.add_parser("ai-dataset", help="build a training set from Claude / ChatGPT exports (conversations.json, folder or .zip)")
+    ad.add_argument("path")
+    ad.add_argument("--out", default="output")
+    ad.add_argument("--title", action="append", help="only chats whose title contains this (repeatable)")
+    ad.add_argument("--min-turns", type=int, default=4)
+    ad.add_argument("--min-reply-chars", type=int, default=200)
+    ad.add_argument("--train-on", choices=["assistant", "user"], default="assistant")
+    ad.add_argument("--no-scrub", action="store_true")
     sub.add_parser("login", help="log in to Hugging Face using the HF_TOKEN environment variable")
     up = sub.add_parser("use", help="set the base model: a number from `chattrainer models`, a preset id, or any HF id/folder")
     up.add_argument("model")
     args = ap.parse_args(argv)
+
+    if args.cmd == "ai-dataset":
+        from .aidataset import build_ai_dataset
+        print(build_ai_dataset(args.path, args.out, keep_titles=args.title, min_turns=args.min_turns,
+                               min_reply_chars=args.min_reply_chars, scrub_text=not args.no_scrub, train_on=args.train_on))
+        return
 
     if args.cmd == "install-train":
         from .setup_train import main as install_train
