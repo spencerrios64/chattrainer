@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chattrainer"
+version = "0.1.0"
+description = "Fine-tune a local LLM on your own WhatsApp, Instagram, TikTok, Telegram, Discord and Snapchat chat exports."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+train = ["torch", "transformers>=4.41", "peft>=0.10", "bitsandbytes>=0.43", "accelerate>=0.30"]
+
+[project.scripts]
+chattrainer = "chattrainer.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["chattrainer*"]
+
+[tool.setuptools.package-data]
+chattrainer = ["config.example.toml"]
