@@ -17,6 +17,9 @@ train = ["torch", "transformers>=4.41", "peft>=0.10", "bitsandbytes>=0.43", "acc
 [project.scripts]
 chattrainer = "chattrainer.cli:main"
 
+[project.gui-scripts]
+chattrainer-gui = "chattrainer.gui:run"
+
 [tool.setuptools.packages.find]
 include = ["chattrainer*"]
 
