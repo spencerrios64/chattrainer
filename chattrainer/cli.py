@@ -22,6 +22,7 @@ def main(argv: list[str] | None = None) -> None:
         ("export", "merge adapter into the base model, optional GGUF"),
         ("chat", "talk to the trained model in the terminal"),
         ("gui", "open the desktop app"),
+        ("serve", "let the Android app control training on this PC over Wi-Fi"),
         ("install-train", "install PyTorch (CUDA) and the other training dependencies"),
     ]:
         sub.add_parser(name, help=help_)
@@ -69,6 +70,11 @@ def main(argv: list[str] | None = None) -> None:
         cfg = config_mod.load(args.config)
         config_mod.save(dataclasses.replace(cfg, base_model=pick), args.config)
         print(f"base_model set to {pick} in {args.config}")
+        return
+
+    if args.cmd == "serve":
+        from .server import serve
+        serve(args.config)
         return
 
     if args.cmd == "gui":
