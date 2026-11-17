@@ -287,10 +287,10 @@ class App(tk.Tk):
     def _models_tab(self, f: ttk.Frame) -> None:
         ttk.Label(f, text="Download a model before training so training starts right away. "
                           "Pick one, press Download, then 'Use for training'.", wraplength=780).pack(anchor="w")
-        cols = ("model", "size", "fits", "status")
+        cols = ("model", "size", "fits", "status", "pick")
         self.model_tree = ttk.Treeview(f, columns=cols, show="headings", height=11, selectmode="browse")
-        for c, t, w in (("model", "Model", 380), ("size", "Size / VRAM", 150), ("fits", "Fits my GPU", 90),
-                        ("status", "Downloaded", 90)):
+        for c, t, w in (("model", "Model", 300), ("size", "Size / VRAM", 140), ("fits", "Fits my GPU", 80),
+                        ("status", "Downloaded", 80), ("pick", "Recommended", 120)):
             self.model_tree.heading(c, text=t)
             self.model_tree.column(c, width=w, anchor="w")
         self.model_tree.pack(fill="x", pady=6)
@@ -299,10 +299,18 @@ class App(tk.Tk):
         bar.pack(fill="x")
         log = Log(f)
         log.configure(height=8)
+        rec = ttk.Frame(f)
+        rec.pack(fill="x", before=bar)
+        r1 = ttk.Button(rec, text="Download recommended (normal)",
+                        command=lambda: self._download_rec(False, log))
+        r2 = ttk.Button(rec, text="Download recommended (Heretic)",
+                        command=lambda: self._download_rec(True, log))
+        r1.pack(side="left", padx=(0, 6))
+        r2.pack(side="left")
         b1 = ttk.Button(bar, text="Download selected")
         b2 = ttk.Button(bar, text="Use for training", command=self._use_selected)
         b3 = ttk.Button(bar, text="Refresh", command=self._refresh_models)
-        self.dl_btns = [b1]
+        self.dl_btns = [b1, r1, r2]
         b1.configure(command=lambda: self._download(self._selected_model(), log))
         for b in (b1, b2, b3):
             b.pack(side="left", padx=(0, 6))
@@ -334,6 +342,7 @@ class App(tk.Tk):
         from .download import is_downloaded
         from .models import PRESETS
         vram = self.model_vram
+        rec_n, rec_h = self._recommended()
         sel = self._selected_model()
         self.model_tree.delete(*self.model_tree.get_children())
         rows = sorted(PRESETS, key=lambda p: (vram is not None and p.vram > vram + 0.5, p.vram))
@@ -341,9 +350,27 @@ class App(tk.Tk):
             fits = "?" if vram is None else ("yes" if p.vram <= vram + 0.5 else "no")
             tag = " [Heretic]" if is_heretic(p.id) else ""
             self.model_tree.insert("", "end", iid=p.id, values=(
-                p.id, f"{p.params}, ~{p.vram} GB{tag}", fits, "yes" if is_downloaded(p.id) else "no"))
+                p.id, f"{p.params}, ~{p.vram} GB{tag}", fits, "yes" if is_downloaded(p.id) else "no",
+                "* best normal" if p.id == rec_n else "* best Heretic" if p.id == rec_h else ""))
         if sel and self.model_tree.exists(sel):
             self.model_tree.selection_set(sel)
+
+    def _recommended(self) -> tuple[str, str]:
+        """Ids of the recommended normal and Heretic model for this PC."""
+        vram = self.model_vram
+        tier = tier_for(vram) if vram is not None else "mid"
+        normal = default_for(tier).id
+        h = best_heretic(vram if vram is not None else TIER_VRAM[tier])
+        return normal, (h.id if h else "")
+
+    def _download_rec(self, heretic: bool, log: Log) -> None:
+        mid = self._recommended()[1 if heretic else 0]
+        if not mid:
+            messagebox.showinfo("chattrainer", "No Heretic preset fits this GPU. Type a Heretic model id below instead.")
+            return
+        if self.model_tree.exists(mid):
+            self.model_tree.selection_set(mid)
+        self._download(mid, log)
 
     def _selected_model(self) -> str:
         s = self.model_tree.selection()
