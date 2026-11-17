@@ -99,6 +99,16 @@ Heretic models are ordinary Hugging Face checkpoints with the refusal direction 
 - `mode = "both"` (default) builds both.
 - Chats are split into train/val by chat, so a conversation never appears on both sides.
 
+## Train on your AI chats (Claude / ChatGPT)
+
+Build a clean fine-tuning set from your Claude or ChatGPT export (`conversations.json`, a folder, or the export `.zip`):
+
+```
+chattrainer ai-dataset path/to/conversations.json --title docker --min-turns 4
+```
+
+It scrubs emails, phone numbers and similar details, drops short or low-effort chats, keeps each conversation entirely in train or validation, and writes `output/ai_train.jsonl` and `output/ai_val.jsonl`. Use `--train-on user` to learn your side of the conversation instead of the AI's answers.
+
 ## Privacy
 
 With `scrub_pii = true` emails, phone numbers, IBANs, card-like numbers and URLs become placeholders. Options: `anonymize_names`, `skip_groups`. Scrubbing is regex-based and will miss things such as street addresses or nicknames: review `output/train.jsonl` before sharing the dataset or any model trained on it. A model trained on private chats can memorise and repeat them, so do not publish the adapter or GGUF without thinking about who is in the data.
