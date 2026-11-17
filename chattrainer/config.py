@@ -1,6 +1,7 @@
 """Config loading (TOML, stdlib only)."""
 from __future__ import annotations
 
+import json
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -73,3 +74,28 @@ def load(path: str | Path = "config.toml") -> Config:
     if unknown:
         raise SystemExit(f"Unknown config keys: {sorted(unknown)}")
     return Config(**flat)
+
+
+SECTIONS = {
+    "identity": ["name", "names"],
+    "paths": ["data_dir", "output_dir"],
+    "privacy": ["scrub_pii", "scrub_urls", "anonymize_names", "skip_groups"],
+    "dataset": ["mode", "context_turns", "window_turns", "window_stride", "merge_gap_minutes",
+                "session_gap_hours", "min_reply_chars", "max_turn_chars", "include_solo",
+                "val_fraction", "system_prompt"],
+    "training": ["base_model", "max_seq_len", "epochs", "learning_rate", "batch_size", "grad_accum",
+                 "lora_r", "lora_alpha", "lora_dropout", "load_in_4bit", "seed"],
+    "export": ["llama_cpp_dir", "gguf_quant"],
+}
+
+
+def save(cfg: Config, path: str | Path = "config.toml") -> None:
+    """Write a config.toml that load() reads back (used by the desktop app)."""
+    lines = ["# Written by chattrainer. Safe to edit by hand."]
+    for section, keys in SECTIONS.items():
+        lines += ["", f"[{section}]"]
+        lines += [f"{k} = {json.dumps(getattr(cfg, k))}" for k in keys]
+    if cfg.platform_names:
+        lines += ["", "[platform_names]"]
+        lines += [f"{k} = {json.dumps(v)}" for k, v in cfg.platform_names.items()]
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
