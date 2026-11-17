@@ -20,6 +20,12 @@ from .config import Config
 from .parsers import PARSERS
 
 CONFIG_PATH = Path("config.toml")
+PRESETS = [
+    "meta-llama/Llama-3.1-8B-Instruct",
+    "Qwen/Qwen3-4B-Instruct-2507",
+    "google/gemma-3-12b-it",
+    "p-e-w/gemma-3-12b-it-heretic",
+]
 HINTS = {
     "whatsapp": ".txt files from Export chat",
     "instagram": "folder with message_*.json (choose JSON export)",
@@ -140,7 +146,14 @@ class App(tk.Tk):
         mode = tk.StringVar(value=c.mode)
         ttk.Combobox(r, textvariable=mode, values=["pairs", "windows", "both"], state="readonly", width=12).pack(side="left")
         self.v["mode"] = mode
-        entry("Base model", "base_model", c.base_model)
+        r = ttk.Frame(f)
+        r.pack(fill="x", pady=2)
+        ttk.Label(r, text="Base model", width=24).pack(side="left")
+        base = tk.StringVar(value=c.base_model)
+        ttk.Combobox(r, textvariable=base, width=48, values=PRESETS).pack(side="left")
+        self.v["base_model"] = base
+        ttk.Label(f, text="Paste any Hugging Face model id (for example a Heretic / abliterated model) or a local folder.",
+                  foreground="#666").pack(anchor="w")
         entry("Epochs", "epochs", c.epochs, 10)
         entry("Max sequence length", "max_seq_len", c.max_seq_len, 10)
         entry("Gradient accumulation", "grad_accum", c.grad_accum, 10)
