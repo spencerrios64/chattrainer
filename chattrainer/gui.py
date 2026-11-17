@@ -17,7 +17,7 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 from . import config as config_mod
 from .config import Config
-from .models import TIER_LABELS, TIERS, default_for, describe, detect_vram_gb, find, models_for, tier_for
+from .models import TIER_LABELS, TIERS, default_for, describe, detect_vram_gb, find, is_heretic, models_for, tier_for
 from .parsers import PARSERS
 
 CONFIG_PATH = Path("config.toml")
@@ -155,9 +155,12 @@ class App(tk.Tk):
         r.pack(fill="x", pady=2)
         ttk.Label(r, text="Base model", width=24).pack(side="left")
         self.base = tk.StringVar(value=c.base_model)
+        self.heretic = tk.BooleanVar(value=is_heretic(c.base_model))
         self.model_cb = ttk.Combobox(r, textvariable=self.base, width=48,
-                                     values=[p.id for p in models_for(self.tier.get())])
+                                     values=[p.id for p in models_for(self.tier.get(), self.heretic.get())])
         self.model_cb.pack(side="left")
+        ttk.Checkbutton(r, text="Show Heretic (uncensored) models", variable=self.heretic,
+                        command=self._tier_changed).pack(side="left", padx=8)
         self.v["base_model"] = self.base
         self.model_info = tk.StringVar()
         ttk.Label(f, textvariable=self.model_info, foreground="#666").pack(anchor="w")
@@ -171,18 +174,26 @@ class App(tk.Tk):
         entry("llama.cpp folder (GGUF)", "llama_cpp_dir", c.llama_cpp_dir)
         ttk.Button(f, text="Save settings", command=self._save).pack(anchor="w", pady=12)
 
+    def _refresh_list(self) -> None:
+        self.model_cb["values"] = [p.id for p in models_for(self.tier.get(), self.heretic.get())]
+
     def _tier_changed(self) -> None:
         t = self.tier.get()
-        ids = [p.id for p in models_for(t)]
+        ids = [p.id for p in models_for(t, self.heretic.get())]
         self.model_cb["values"] = ids
         if t in TIERS and self.base.get() not in ids:
             self.base.set(default_for(t).id)
         self._show_model()
 
     def _show_model(self) -> None:
-        p = find(self.base.get())
+        mid = self.base.get()
+        p = find(mid)
+        if is_heretic(mid) and not self.heretic.get():
+            self.heretic.set(True)  # a Heretic model was picked or typed: show them in the list too
+            self._refresh_list()
         self.model_info.set(describe(p) if p else
-                            "Custom model: paste any Hugging Face id (e.g. a Heretic model) or a local folder.")
+                            ("Heretic model detected. " if is_heretic(mid) else "") +
+                            "Custom model: any Hugging Face id or a local folder works.")
 
     def _detect(self) -> None:
         vram = detect_vram_gb()
